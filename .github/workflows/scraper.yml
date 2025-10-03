@@ -20,7 +20,7 @@ jobs:
           node-version: '18'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install
       
       - name: Run Mercari scraper
         env:
@@ -39,7 +39,7 @@ jobs:
           node-version: '18'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install
       
       - name: Run Yahoo scraper
         env:
@@ -58,7 +58,7 @@ jobs:
           node-version: '18'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install
       
       - name: Run analyzer
         env:
