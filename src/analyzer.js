@@ -57,9 +57,9 @@ async function sendEmail(source, keyword, product, avgPrice, discount) {
     }
   });
 
-  const subject = `🔥 お買い得発見！${sourceName} - ${discount}% OFF`;
+  const subject = `🔥 発見！${sourceName} - ${discount}% OFF`;
   const html = `
-    <h2>お買い得商品が見つかりました！</h2>
+    <h2>商品が見つかりました！</h2>
     <p><strong>サイト:</strong> ${sourceName}</p>
     <p><strong>カテゴリ:</strong> ${keyword}</p>
     <p><strong>商品:</strong> ${product.title}</p>
