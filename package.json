@@ -1,0 +1,15 @@
+{
+  "name": "flea-market-monitor",
+  "version": "1.0.0",
+  "description": "メルカリ & ヤフーフリマ 価格監視",
+  "scripts": {
+    "scrape:mercari": "node src/scraper-mercari.js",
+    "scrape:yahoo": "node src/scraper-yahoo.js",
+    "analyze": "node src/analyzer.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.5.0",
+    "pg": "^8.11.0",
+    "nodemailer": "^6.9.0"
+  }
+}
