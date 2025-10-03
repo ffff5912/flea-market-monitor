@@ -15,12 +15,24 @@ async function scrape() {
   });
 
   for (const keyword of KEYWORDS) {
-    console.log(`[メルカリ] ${keyword} をスクレイピング中...`);
+    await scrapeByStatus(browser, client, keyword, 'on_sale', '販売中');
+    
+    await scrapeByStatus(browser, client, keyword, 'sold_out%7Ctrading', 'SOLD');
+  }
 
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+  await browser.close();
+  await client.end();
+}
 
-    const url = `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}`;
+async function scrapeByStatus(browser, client, keyword, statusParam, statusLabel) {
+  console.log(`[メルカリ] ${keyword} (${statusLabel}) をスクレイピング中...`);
+
+  const page = await browser.newPage();
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+
+  const url = `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}&sort=created_time&order=desc&status=${statusParam}`;
+  
+  try {
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
     await page.waitForSelector('[data-testid="item-cell"]', { timeout: 10000 });
 
@@ -31,22 +43,26 @@ async function scrape() {
       elements.forEach((el, idx) => {
         if (idx >= 30) return;
         try {
-          const title = el.querySelector('[data-testid="item-name"]')?.textContent?.trim();
-          const priceText = el.querySelector('[data-testid="item-price"]')?.textContent;
-          const price = parseInt(priceText?.replace(/[^0-9]/g, '') || '0');
-          const link = el.querySelector('a')?.getAttribute('href');
-          const sold = el.querySelector('[data-testid="item-status"]')?.textContent === 'SOLD';
+          const titleEl = el.querySelector('[data-testid="thumbnail-item-name"]');
+          const priceEl = el.querySelector('.merPrice .number__6b270ca7');
+          const linkEl = el.querySelector('a[data-testid="thumbnail-link"]');
 
-          if (title && price && link) {
+          const title = titleEl?.textContent?.trim();
+          const priceText = priceEl?.textContent?.trim();
+          const price = parseInt(priceText?.replace(/,/g, '') || '0');
+          const href = linkEl?.getAttribute('href');
+
+          if (title && price && href) {
             items.push({
-              productId: link.split('/').pop(),
+              productId: href.split('/').pop(),
               title,
               price,
-              url: 'https://jp.mercari.com' + link,
-              status: sold ? 'SOLD' : '販売中'
+              url: 'https://jp.mercari.com' + href
             });
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error('Parse error:', e);
+        }
       });
 
       return items;
@@ -58,20 +74,31 @@ async function scrape() {
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (source, product_id) DO UPDATE SET
           status = EXCLUDED.status,
-          sold_at = CASE WHEN EXCLUDED.status = 'SOLD' AND products.status = '販売中'
-            THEN NOW() ELSE products.sold_at END,
+          sold_at = CASE 
+            WHEN EXCLUDED.status = 'SOLD' AND products.status = '販売中' THEN NOW() 
+            WHEN EXCLUDED.status = 'SOLD' THEN products.sold_at
+            ELSE NULL 
+          END,
           updated_at = NOW()
-      `, ['mercari', p.productId, p.title, p.price, keyword, p.status, p.url,
-          p.status === 'SOLD' ? new Date() : null]);
+      `, [
+        'mercari', 
+        p.productId, 
+        p.title, 
+        p.price, 
+        keyword, 
+        statusLabel, 
+        p.url,
+        statusLabel === 'SOLD' ? new Date() : null
+      ]);
     }
 
-    console.log(`[メルカリ] ${products.length}件保存`);
+    console.log(`[メルカリ] ${keyword} (${statusLabel}) ${products.length}件保存`);
+  } catch (error) {
+    console.error(`[メルカリ] ${keyword} (${statusLabel}) エラー:`, error.message);
+  } finally {
     await page.close();
     await new Promise(r => setTimeout(r, 3000));
   }
-
-  await browser.close();
-  await client.end();
 }
 
 scrape().catch(console.error);
