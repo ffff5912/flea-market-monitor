@@ -1,0 +1,72 @@
+name: kakaku
+
+on:
+  schedule:
+    - cron: '0,30 * * * *'
+    - cron: '15,45 * * * *'
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  scrape-mercari:
+    if: github.event.schedule == '0,30 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run Mercari scraper
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node src/scraper-mercari.js
+
+  scrape-yahoo:
+    if: github.event.schedule == '15,45 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run Yahoo scraper
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node src/scraper-yahoo.js
+
+  analyze:
+    if: github.event.schedule == '0 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run analyzer
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: node src/analyzer.js
