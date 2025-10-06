@@ -95,13 +95,24 @@ async function geminiAnalyze() {
       .replace(/{{sample_size}}/g, summary.sample_size);
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 4096, // 出力も増やす
-      }
-    });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// 利用可能なモデル一覧を取得
+try {
+  const models = await genAI.listModels();
+  console.log('[利用可能なモデル]');
+  models.forEach(m => console.log(`  - ${m.name}`));
+} catch (e) {
+  console.log('[モデル一覧取得エラー]', e.message);
+}
+    
+const model = genAI.getGenerativeModel({ 
+  model: 'gemini-1.5-flash-latest',  // ← -latest を追加
+  generationConfig: {
+    temperature: 0.7,
+    maxOutputTokens: 4096,
+  }
+});
     
     console.log('[Gemini] 分析リクエスト送信中...');
     const startTime = Date.now();
