@@ -27,24 +27,6 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: node src/scraper-mercari.js
 
-  scrape-yahoo:
-    if: github.event.schedule == '15,45 * * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      
-      - name: Install dependencies
-        run: npm install
-      
-      - name: Run Yahoo scraper
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: node src/scraper-yahoo.js
 
   analyze:
     if: github.event.schedule == '0 * * * *' || github.event_name == 'workflow_dispatch'
