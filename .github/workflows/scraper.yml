@@ -2,22 +2,14 @@ name: kakaku
 
 on:
   schedule:
-    # 日本時間 12-14時（昼休み）は15分おき
-    - cron: '*/15 3-5 * * *'
+    # スクレイピング
+    - cron: '*/15 3-5 * * *'       # 日本時間 12-14時（昼休み）15分おき
+    - cron: '*/15 9-14 * * *'      # 日本時間 18-23時（夜）15分おき
+    - cron: '*/30 0-2,6-8,15-23 * * *'  # それ以外は30分おき
     
-    # 日本時間 18-23時（夜）は15分おき
-    - cron: '*/15 9-14 * * *'
-    
-    # それ以外は30分おき
-    - cron: '*/30 0-2,6-8,15-23 * * *'
-    
-    # 分析は1時間おき
-    - cron: '0 * * * *'
-
-    # クリーンアップは毎日深夜1時
-    - cron: '0 1 * * *'    
-
-    - cron: '0 17 * * *'    
+    # 分析・レポート
+    - cron: '0 * * * *'            # 1時間おき（既存のanalyzer）
+    - cron: '0 17 * * *'           # 毎日深夜2時（日本時間）Gemini分析
     
   workflow_dispatch:
 
@@ -70,27 +62,9 @@ jobs:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: node src/analyzer.js
 
-  cleanup:
-    if: github.event.schedule == '0 1 * * *'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Cleanup old data
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: node src/cleanup.js
 
-gemini-analysis:
+  gemini-analysis:
+    # 毎日深夜2時（日本時間）にGemini分析
     if: github.event.schedule == '0 17 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -109,5 +83,7 @@ gemini-analysis:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_PROMPT: ${{ secrets.GEMINI_PROMPT }}  # ← 追加
+          GEMINI_PROMPT: ${{ secrets.GEMINI_PROMPT }}
+          GEMINI_SAMPLE_SIZE: '0'      # 全件送る（0=制限なし）
+          ANALYSIS_DAYS: '7'           # 過去7日間
         run: node src/gemini-analyzer.js
