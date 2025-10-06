@@ -72,7 +72,7 @@ async function getKeywords() {
   }
   
   // 3. デフォルト
-  const defaultKeywords = ['ゲーム', 'Nintendo Switch', 'ポケモンカード'];
+  const defaultKeywords = ['ゲーム'];
   console.log(`[キーワード] デフォルト使用: ${defaultKeywords.join(', ')}`);
   return defaultKeywords;
 }
