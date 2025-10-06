@@ -16,6 +16,8 @@ on:
 
     # クリーンアップは毎日深夜1時
     - cron: '0 1 * * *'    
+
+    - cron: '0 17 * * *'    
     
   workflow_dispatch:
 
@@ -87,3 +89,25 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: node src/cleanup.js
+
+gemini-analysis:
+    if: github.event.schedule == '0 17 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run Gemini analysis
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_PROMPT: ${{ secrets.GEMINI_PROMPT }}  # ← 追加
+        run: node src/gemini-analyzer.js
