@@ -229,7 +229,7 @@ async function autoScroll(page, maxScrolls = 20) {
     });
   }, maxScrolls);
   
-  await page.waitForTimeout(2000);
+  await new Promise(resolve => setTimeout(resolve, 2000));
 }
 
 async function saveToDatabase(items, keyword) {
