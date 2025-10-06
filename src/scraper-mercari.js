@@ -1,6 +1,52 @@
-// scraper-mercari.js（DB分析版 - 全文）
+// scraper-mercari.js（カテゴリ抽出改良版 - 全文）
 const puppeteer = require('puppeteer');
 const { Client } = require('pg');
+
+// 汎用的なカテゴリ抽出関数（改良版）
+function extractCategory(title) {
+  // 1. ノイズ除去
+  let cleaned = title
+    // 装飾記号を削除
+    .replace(/【[^】]*】/g, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/「[^」]*」/g, '')
+    
+    // 状態系キーワードを削除
+    .replace(/新品未使用|新品|未使用|中古|美品|未開封/g, '')
+    .replace(/送料込み?|送料無料/g, '')
+    
+    // 数量・セット表記を削除
+    .replace(/\d+\s*(個|枚|本|セット|点|冊)/g, '')
+    .replace(/\d+セット/g, '')
+    
+    // 限定版などの付加情報を削除
+    .replace(/限定版|通常版|初回版|特典付き?/g, '')
+    
+    // 連続スペースを整理
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // 2. 抽出戦略
+  
+  // 戦略A: スペース区切りで最初の2-3単語（日本語タイトル向け）
+  const words = cleaned.split(/\s+/);
+  if (words.length >= 2) {
+    // 最初の2-3単語を結合
+    const candidate = words.slice(0, Math.min(3, words.length)).join(' ');
+    if (candidate.length >= 5 && candidate.length <= 30) {
+      return candidate;
+    }
+  }
+  
+  // 戦略B: 最初の15-20文字（長いタイトル向け）
+  if (cleaned.length > 20) {
+    return cleaned.substring(0, 20).trim();
+  }
+  
+  // 戦略C: そのまま返す
+  return cleaned.substring(0, 30).trim();
+}
 
 // DBから売れ筋キーワードを分析
 async function analyzeKeywordsFromDB() {
@@ -28,9 +74,9 @@ async function analyzeKeywordsFromDB() {
     WHERE 
       source = 'mercari' 
       AND status = 'SOLD'
-      AND created_at > NOW() - INTERVAL '7 days'  -- 直近7日間
+      AND created_at > NOW() - INTERVAL '7 days'
     GROUP BY keyword
-    HAVING COUNT(*) > 10  -- 10件以上売れているもの
+    HAVING COUNT(*) > 10
     ORDER BY sold_count DESC
     LIMIT 10
   `);
@@ -51,14 +97,12 @@ async function analyzeKeywordsFromDB() {
 
 // キーワード取得（優先順位: 環境変数 > DB分析 > デフォルト）
 async function getKeywords() {
-  // 1. 環境変数（手動指定 - 最優先）
   if (process.env.KEYWORDS) {
     const keywords = process.env.KEYWORDS.split(',').map(k => k.trim());
     console.log(`[キーワード] 環境変数から取得: ${keywords.join(', ')}`);
     return keywords;
   }
   
-  // 2. DB分析（自動）
   if (process.env.AUTO_KEYWORD === 'true') {
     try {
       const analyzed = await analyzeKeywordsFromDB();
@@ -71,7 +115,6 @@ async function getKeywords() {
     }
   }
   
-  // 3. デフォルト
   const defaultKeywords = ['ゲーム'];
   console.log(`[キーワード] デフォルト使用: ${defaultKeywords.join(', ')}`);
   return defaultKeywords;
@@ -91,7 +134,7 @@ async function scrapeMercari(keyword, status = 'on_sale') {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
   );
 
-  // 新しい順にソート対応
+  // 新しい順にソート
   const statusParam = status === 'sold' ? '&status=sold' : '';
   const url = `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}&sort=created_time&order=desc${statusParam}`;
   
@@ -156,9 +199,10 @@ async function scrapeMercari(keyword, status = 'on_sale') {
 
   console.log(`[メルカリ] ${products.length}件取得`);
   
-  // 商品IDも表示
+  // 商品IDとカテゴリも表示
   products.slice(0, 5).forEach(p => {
-    console.log(`  - [${p.productId}] ${p.title.substring(0, 50)}... ¥${p.price.toLocaleString()} [${p.status}]`);
+    const category = extractCategory(p.title);
+    console.log(`  - [${p.productId}] ${p.title.substring(0, 40)}... → [${category}] ¥${p.price.toLocaleString()} [${p.status}]`);
   });
 
   return products;
@@ -200,15 +244,19 @@ async function saveToDatabase(items, keyword) {
   
   await client.connect();
   
+  let savedCount = 0;
   for (const item of items) {
+    const category = extractCategory(item.title);
+    
     await client.query(`
       INSERT INTO products (
-        product_id, title, price, url, source, keyword, status, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        product_id, title, price, url, source, keyword, category, status, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       ON CONFLICT (product_id, source) 
       DO UPDATE SET 
         price = EXCLUDED.price,
         status = EXCLUDED.status,
+        category = EXCLUDED.category,
         updated_at = CURRENT_TIMESTAMP
     `, [
       item.productId,
@@ -217,13 +265,15 @@ async function saveToDatabase(items, keyword) {
       item.url,
       'mercari',
       keyword,
+      category,
       item.status,
       new Date()
     ]);
+    savedCount++;
   }
   
   await client.end();
-  console.log(`[DB] ${items.length}件保存完了`);
+  console.log(`[DB] ${savedCount}件保存完了`);
 }
 
 // メイン実行
