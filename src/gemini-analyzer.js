@@ -12,6 +12,9 @@ async function geminiAnalyze() {
     await client.connect();
     console.log('[DB] 接続成功');
     
+    // 期間を環境変数で調整可能に（デフォルト7日間）
+    const days = process.env.ANALYSIS_DAYS || 7;
+    
     const { rows } = await client.query(`
       SELECT 
         category,
@@ -21,16 +24,31 @@ async function geminiAnalyze() {
         EXTRACT(EPOCH FROM (sold_at - created_at))/3600 as hours_to_sell,
         TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI') as created_at
       FROM products
-      WHERE created_at > NOW() - INTERVAL '7 days'
+      WHERE created_at > NOW() - INTERVAL '${days} days'
       ORDER BY created_at DESC
-      LIMIT 1000
     `);
     
     await client.end();
-    console.log(`[DB] ${rows.length}件のデータ取得`);
+    console.log(`[DB] ${rows.length}件のデータ取得（過去${days}日間）`);
     
     if (rows.length === 0) {
       console.log('[警告] データが0件です。');
+      return;
+    }
+    
+    // サンプル件数を環境変数で調整可能に（デフォルト1000件、0=全件）
+    const sampleSize = parseInt(process.env.GEMINI_SAMPLE_SIZE || '1000');
+    const sampleData = sampleSize === 0 ? rows : rows.slice(0, sampleSize);
+    
+    console.log(`[サンプル] ${sampleData.length}件を分析に使用`);
+    
+    // データサイズを計算（警告用）
+    const dataSize = JSON.stringify(sampleData).length;
+    const estimatedTokens = Math.round(dataSize / 4); // 大雑把な見積もり
+    console.log(`[推定] データサイズ: ${(dataSize / 1024).toFixed(1)}KB, トークン数: 約${estimatedTokens.toLocaleString()}`);
+    
+    if (estimatedTokens > 900000) {
+      console.warn('[警告] トークン数が多すぎます（100万トークン制限）。GEMINI_SAMPLE_SIZEを小さくしてください。');
       return;
     }
     
@@ -38,15 +56,16 @@ async function geminiAnalyze() {
       total_items: rows.length,
       sold_items: rows.filter(r => r.status === 'SOLD').length,
       on_sale_items: rows.filter(r => r.status === '販売中').length,
-      categories: [...new Set(rows.map(r => r.category))].slice(0, 20),
-      sample_data: rows.slice(0, 100)
+      categories: [...new Set(rows.map(r => r.category))].slice(0, 50), // カテゴリも増やす
+      sample_data: sampleData,
+      sample_size: sampleData.length
     };
     
     console.log('[統計] 合計:', summary.total_items, '件');
     console.log('[統計] SOLD:', summary.sold_items, '件');
     console.log('[統計] 販売中:', summary.on_sale_items, '件');
+    console.log('[統計] カテゴリ数:', summary.categories.length, '種類');
     
-    // プロンプトチェック
     if (!process.env.GEMINI_PROMPT) {
       console.error('[エラー] GEMINI_PROMPTが設定されていません');
       console.log('\n以下の変数が利用可能です：');
@@ -56,6 +75,7 @@ async function geminiAnalyze() {
       console.log('  {{categories_count}} - カテゴリ数');
       console.log('  {{categories}} - カテゴリ一覧');
       console.log('  {{sample_data}} - サンプルデータ（JSON）');
+      console.log('  {{sample_size}} - サンプルデータ件数');
       return;
     }
     
@@ -71,21 +91,27 @@ async function geminiAnalyze() {
       .replace(/{{on_sale_items}}/g, summary.on_sale_items)
       .replace(/{{categories_count}}/g, summary.categories.length)
       .replace(/{{categories}}/g, summary.categories.join(', '))
-      .replace(/{{sample_data}}/g, JSON.stringify(summary.sample_data, null, 2));
+      .replace(/{{sample_data}}/g, JSON.stringify(summary.sample_data, null, 2))
+      .replace(/{{sample_size}}/g, summary.sample_size);
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ 
       model: 'gemini-1.5-flash',
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 4096, // 出力も増やす
       }
     });
     
     console.log('[Gemini] 分析リクエスト送信中...');
+    const startTime = Date.now();
+    
     const result = await model.generateContent(prompt);
     const response = result.response;
     const text = response.text();
+    
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[Gemini] 分析完了（${elapsed}秒）`);
     
     console.log('\n' + '='.repeat(80));
     console.log('📊 Gemini分析レポート');
