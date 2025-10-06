@@ -2,13 +2,27 @@ name: kakaku
 
 on:
   schedule:
-    - cron: '0,30 * * * *'
+    # 日本時間 12-14時（昼休み）は15分おき
+    - cron: '*/15 3-5 * * *'
+    
+    # 日本時間 18-23時（夜）は15分おき
+    - cron: '*/15 9-14 * * *'
+    
+    # それ以外は30分おき
+    - cron: '*/30 0-2,6-8,15-23 * * *'
+    
+    # 分析は1時間おき
     - cron: '0 * * * *'
+    
   workflow_dispatch:
 
 jobs:
   scrape-mercari:
-    if: github.event.schedule == '0,30 * * * *' || github.event_name == 'workflow_dispatch'
+    if: |
+      github.event.schedule == '*/15 3-5 * * *' ||
+      github.event.schedule == '*/15 9-14 * * *' ||
+      github.event.schedule == '*/30 0-2,6-8,15-23 * * *' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -17,10 +31,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'  # ← これを追加（自動でnode_modulesをキャッシュ）
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci  # ← npm install から npm ci に変更（高速で確実）
+        run: npm ci
       
       - name: Run Mercari scraper
         env:
@@ -38,10 +52,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'  # ← これを追加
+          cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci  # ← npm install から npm ci に変更
+        run: npm ci
       
       - name: Run analyzer
         env:
