@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require('@google/genai');  // ← GoogleGenAI（GenerativeAIではない）
+const { GoogleGenAI } = require('@google/genai');
 const { Client } = require('pg');
 
 async function geminiAnalyze() {
@@ -65,20 +65,29 @@ async function geminiAnalyze() {
       .replace(/{{sample_data}}/g, JSON.stringify(summary.sample_data, null, 2))
       .replace(/{{sample_size}}/g, summary.sample_size);
     
-    // 正しい使い方（READMEより）
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
     console.log('[Gemini] リクエスト送信...');
     const startTime = Date.now();
     
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',  // Gemini 2.0
+      model: 'gemini-2.0-flash-exp',
       contents: prompt,
     });
     
-    const text = response.text;
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[Gemini] 完了（${elapsed}秒）`);
+    
+    // デバッグ：レスポンスの構造を確認
+    console.log('[デバッグ] response keys:', Object.keys(response));
+    console.log('[デバッグ] response.text:', response.text);
+    console.log('[デバッグ] response:', JSON.stringify(response, null, 2).substring(0, 500));
+    
+    // 複数の取得方法を試す
+    let text = response.text 
+               || response.content?.text 
+               || response.candidates?.[0]?.content?.parts?.[0]?.text
+               || 'テキストが取得できませんでした';
     
     console.log('\n' + '='.repeat(80));
     console.log('📊 Gemini分析レポート');
