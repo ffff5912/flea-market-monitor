@@ -12,7 +12,6 @@ async function geminiAnalyze() {
     await client.connect();
     console.log('[DB] 接続成功');
     
-    // 期間を環境変数で調整可能に（デフォルト7日間）
     const days = process.env.ANALYSIS_DAYS || 7;
     
     const { rows } = await client.query(`
@@ -36,15 +35,13 @@ async function geminiAnalyze() {
       return;
     }
     
-    // サンプル件数を環境変数で調整可能に（デフォルト1000件、0=全件）
     const sampleSize = parseInt(process.env.GEMINI_SAMPLE_SIZE || '1000');
     const sampleData = sampleSize === 0 ? rows : rows.slice(0, sampleSize);
     
     console.log(`[サンプル] ${sampleData.length}件を分析に使用`);
     
-    // データサイズを計算（警告用）
     const dataSize = JSON.stringify(sampleData).length;
-    const estimatedTokens = Math.round(dataSize / 4); // 大雑把な見積もり
+    const estimatedTokens = Math.round(dataSize / 4);
     console.log(`[推定] データサイズ: ${(dataSize / 1024).toFixed(1)}KB, トークン数: 約${estimatedTokens.toLocaleString()}`);
     
     if (estimatedTokens > 900000) {
@@ -56,7 +53,7 @@ async function geminiAnalyze() {
       total_items: rows.length,
       sold_items: rows.filter(r => r.status === 'SOLD').length,
       on_sale_items: rows.filter(r => r.status === '販売中').length,
-      categories: [...new Set(rows.map(r => r.category))].slice(0, 50), // カテゴリも増やす
+      categories: [...new Set(rows.map(r => r.category))].slice(0, 50),
       sample_data: sampleData,
       sample_size: sampleData.length
     };
@@ -84,7 +81,6 @@ async function geminiAnalyze() {
       return;
     }
     
-    // プロンプト変数を置換
     const prompt = process.env.GEMINI_PROMPT
       .replace(/{{total_items}}/g, summary.total_items)
       .replace(/{{sold_items}}/g, summary.sold_items)
@@ -95,24 +91,13 @@ async function geminiAnalyze() {
       .replace(/{{sample_size}}/g, summary.sample_size);
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// 利用可能なモデル一覧を取得
-try {
-  const models = await genAI.listModels();
-  console.log('[利用可能なモデル]');
-  models.forEach(m => console.log(`  - ${m.name}`));
-} catch (e) {
-  console.log('[モデル一覧取得エラー]', e.message);
-}
-    
-const model = genAI.getGenerativeModel({ 
-  model: 'gemini-1.5-flash-latest',  // ← -latest を追加
-  generationConfig: {
-    temperature: 0.7,
-    maxOutputTokens: 4096,
-  }
-});
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-1.5-flash-latest',  // ← 修正
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 4096,
+      }
+    });
     
     console.log('[Gemini] 分析リクエスト送信中...');
     const startTime = Date.now();
