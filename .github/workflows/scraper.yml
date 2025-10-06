@@ -13,6 +13,9 @@ on:
     
     # 分析は1時間おき
     - cron: '0 * * * *'
+
+    # クリーンアップは毎日深夜1時
+    - cron: '0 1 * * *'    
     
   workflow_dispatch:
 
@@ -64,3 +67,23 @@ jobs:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: node src/analyzer.js
+
+  cleanup:
+    if: github.event.schedule == '0 1 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Cleanup old data
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node src/cleanup.js
