@@ -50,6 +50,7 @@ async function geminiAnalyze() {
     
     console.log('[統計] 合計:', summary.total_items);
     console.log('[統計] SOLD:', summary.sold_items);
+    console.log('[統計] 販売中:', summary.on_sale_items);
     
     if (!process.env.GEMINI_PROMPT) {
       console.error('[エラー] GEMINI_PROMPTが設定されていません');
@@ -75,19 +76,9 @@ async function geminiAnalyze() {
       contents: prompt,
     });
     
+    const text = response.text;
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[Gemini] 完了（${elapsed}秒）`);
-    
-    // デバッグ：レスポンスの構造を確認
-    console.log('[デバッグ] response keys:', Object.keys(response));
-    console.log('[デバッグ] response.text:', response.text);
-    console.log('[デバッグ] response:', JSON.stringify(response, null, 2).substring(0, 500));
-    
-    // 複数の取得方法を試す
-    let text = response.text 
-               || response.content?.text 
-               || response.candidates?.[0]?.content?.parts?.[0]?.text
-               || 'テキストが取得できませんでした';
     
     console.log('\n' + '='.repeat(80));
     console.log('📊 Gemini分析レポート');
@@ -103,7 +94,9 @@ async function geminiAnalyze() {
     
   } catch (error) {
     console.error('[エラー]', error.message);
-    console.error(error);
+    if (error.stack) {
+      console.error(error.stack);
+    }
   }
 }
 
