@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require('@google/genai');
+const { GoogleGenAI } = require('@google/genai');  // ← GoogleGenAI（GenerativeAIではない）
 const { Client } = require('pg');
 
 async function geminiAnalyze() {
@@ -65,16 +65,14 @@ async function geminiAnalyze() {
       .replace(/{{sample_data}}/g, JSON.stringify(summary.sample_data, null, 2))
       .replace(/{{sample_size}}/g, summary.sample_size);
     
-    // 新しいSDK（@google/genai）の使い方
-    const client = new GoogleGenerativeAI({
-      apiKey: process.env.GEMINI_API_KEY,
-    });
+    // 正しい使い方（READMEより）
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
     console.log('[Gemini] リクエスト送信...');
     const startTime = Date.now();
     
-    const response = await client.models.generateContent({
-      model: 'gemini-2.5-flash',
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',  // Gemini 2.0
       contents: prompt,
     });
     
