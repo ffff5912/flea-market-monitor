@@ -8,8 +8,8 @@
     "analyze": "node src/analyzer.js"
   },
   "dependencies": {
-    "puppeteer": "^21.5.0",
-    "pg": "^8.11.0",
-    "nodemailer": "^6.9.0"
+    "puppeteer": "^24.15.0",
+    "pg": "^8.11.3",
+    "nodemailer": "^6.9.7"
   }
 }
