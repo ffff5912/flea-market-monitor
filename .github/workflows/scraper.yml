@@ -18,7 +18,13 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-      
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+    
       - name: Install dependencies
         run: npm install
       
@@ -49,3 +55,4 @@ jobs:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: node src/analyzer.js
+
