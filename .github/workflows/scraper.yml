@@ -17,15 +17,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+          cache: 'npm'  # ← これを追加（自動でnode_modulesをキャッシュ）
 
-      - name: Cache node modules
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-    
       - name: Install dependencies
-        run: npm install
+        run: npm ci  # ← npm install から npm ci に変更（高速で確実）
       
       - name: Run Mercari scraper
         env:
@@ -43,9 +38,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+          cache: 'npm'  # ← これを追加
       
       - name: Install dependencies
-        run: npm install
+        run: npm ci  # ← npm install から npm ci に変更
       
       - name: Run analyzer
         env:
@@ -54,4 +50,3 @@ jobs:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: node src/analyzer.js
-
