@@ -257,6 +257,11 @@ async function saveToDatabase(items, keyword) {
         price = EXCLUDED.price,
         status = EXCLUDED.status,
         category = EXCLUDED.category,
+        sold_at = CASE 
+          WHEN products.status != 'SOLD' AND EXCLUDED.status = 'SOLD' 
+          THEN CURRENT_TIMESTAMP 
+          ELSE products.sold_at 
+        END,
         updated_at = CURRENT_TIMESTAMP
     `, [
       item.productId,
