@@ -115,7 +115,7 @@ async function getKeywords() {
     }
   }
   
-  const defaultKeywords = ['ゲーム'];
+  const defaultKeywords = ['Switch','DS', 'SFC', 'FC', 'PS4', 'PS5', 'GB', 'コスメ'];
   console.log(`[キーワード] デフォルト使用: ${defaultKeywords.join(', ')}`);
   return defaultKeywords;
 }
