@@ -87,3 +87,11 @@ jobs:
           GEMINI_SAMPLE_SIZE: '0'      # 全件送る（0=制限なし）
           ANALYSIS_DAYS: '7'           # 過去7日間
         run: node src/gemini-analyzer.js
+
+              # ← ここを追加
+      - name: Upload analysis report
+        uses: actions/upload-artifact@v3
+        with:
+          name: analysis-report
+          path: analysis-*.md
+          retention-days: 30  # 30日間保存
