@@ -135,7 +135,7 @@ async function scrapeMercari(keyword, status = 'on_sale') {
   );
 
   // 新しい順にソート
-  const statusParam = status === 'sold' ? '&status=sold' : '';
+  const statusParam = status === 'sold' ? '&status=sold_out' : '';
   const url = `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}&sort=created_time&order=desc${statusParam}`;
   
   await page.goto(url, { 
