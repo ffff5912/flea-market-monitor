@@ -91,8 +91,9 @@ async function scrapeMercari(keyword, status = 'on_sale') {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
   );
 
+  // 新しい順にソート対応
   const statusParam = status === 'sold' ? '&status=sold' : '';
-  const url = `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}${statusParam}`;
+  const url = `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}&sort=created_time&order=desc${statusParam}`;
   
   await page.goto(url, { 
     waitUntil: 'networkidle2', 
@@ -155,8 +156,9 @@ async function scrapeMercari(keyword, status = 'on_sale') {
 
   console.log(`[メルカリ] ${products.length}件取得`);
   
-  products.slice(0, 3).forEach(p => {
-    console.log(`  - ${p.title.substring(0, 50)}... ¥${p.price.toLocaleString()} [${p.status}]`);
+  // 商品IDも表示
+  products.slice(0, 5).forEach(p => {
+    console.log(`  - [${p.productId}] ${p.title.substring(0, 50)}... ¥${p.price.toLocaleString()} [${p.status}]`);
   });
 
   return products;
@@ -240,6 +242,6 @@ async function saveToDatabase(items, keyword) {
     await new Promise(resolve => setTimeout(resolve, 3000));
   }
   
-  console.log('\n完了!');
+  console.log('\n✅ 完了!');
   process.exit(0);
 })();
