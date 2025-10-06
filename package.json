@@ -8,6 +8,7 @@
     "analyze": "node src/analyzer.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
     "puppeteer": "^24.15.0",
     "pg": "^8.11.3",
     "nodemailer": "^6.9.7"
