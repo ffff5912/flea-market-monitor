@@ -1,7 +1,7 @@
 {
   "name": "flea-market-monitor",
   "version": "1.0.0",
-  "description": "メルカリ & ヤフーフリマ 価格監視",
+  "description": "監視",
   "scripts": {
     "scrape:mercari": "node src/scraper-mercari.js",
     "scrape:yahoo": "node src/scraper-yahoo.js",
