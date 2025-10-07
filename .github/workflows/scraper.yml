@@ -84,7 +84,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_PROMPT: ${{ secrets.GEMINI_PROMPT }}
-          GEMINI_SAMPLE_SIZE: '0'      # 全件送る（0=制限なし）
+          GEMINI_SAMPLE_SIZE: '2000'      # 全件送る（0=制限なし）
           ANALYSIS_DAYS: '7'           # 過去7日間
         run: node src/gemini-analyzer.js
 
