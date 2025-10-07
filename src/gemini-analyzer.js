@@ -36,16 +36,11 @@ async function geminiAnalyze() {
       return;
     }
     
-    const sampleSize = parseInt(process.env.GEMINI_SAMPLE_SIZE || '1000');
-    const sampleData = sampleSize === 0 ? rows : rows.slice(0, sampleSize);
-    
     const summary = {
       total_items: rows.length,
       sold_items: rows.filter(r => r.status === 'SOLD').length,
       on_sale_items: rows.filter(r => r.status === '販売中').length,
-      categories: [...new Set(rows.map(r => r.category))].slice(0, 50),
-      sample_data: sampleData,
-      sample_size: sampleData.length
+      categories: [...new Set(rows.map(r => r.category))].slice(0, 50)
     };
     
     console.log('[統計] 合計:', summary.total_items);
@@ -57,39 +52,103 @@ async function geminiAnalyze() {
       return;
     }
     
-    const prompt = process.env.GEMINI_PROMPT
-      .replace(/{{total_items}}/g, summary.total_items)
-      .replace(/{{sold_items}}/g, summary.sold_items)
-      .replace(/{{on_sale_items}}/g, summary.on_sale_items)
-      .replace(/{{categories_count}}/g, summary.categories.length)
-      .replace(/{{categories}}/g, summary.categories.join(', '))
-      .replace(/{{sample_data}}/g, JSON.stringify(summary.sample_data, null, 2))
-      .replace(/{{sample_size}}/g, summary.sample_size);
+    // データを400件ずつのチャンクに分割（約10万トークン/チャンク）
+    const chunkSize = 400;
+    const chunks = [];
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      chunks.push(rows.slice(i, i + chunkSize));
+    }
+    
+    console.log(`[分割] ${chunks.length}チャンクに分割`);
     
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    let combinedAnalysis = '';
     
-    console.log('[Gemini] リクエスト送信...');
-    const startTime = Date.now();
+    for (let i = 0; i < chunks.length; i++) {
+      const chunkData = chunks[i];
+      
+      // プロンプトのテンプレート変数を置換
+      const prompt = process.env.GEMINI_PROMPT
+        .replace(/{{total_items}}/g, summary.total_items)
+        .replace(/{{sold_items}}/g, summary.sold_items)
+        .replace(/{{on_sale_items}}/g, summary.on_sale_items)
+        .replace(/{{categories_count}}/g, summary.categories.length)
+        .replace(/{{categories}}/g, summary.categories.join(', '))
+        .replace(/{{sample_data}}/g, JSON.stringify(chunkData, null, 2))
+        .replace(/{{sample_size}}/g, chunkData.length)
+        // チャンク情報を追加
+        + `\n\n【注意】これは全${summary.total_items}件中の${i * chunkSize + 1}件目から${Math.min((i + 1) * chunkSize, summary.total_items)}件目までのデータです（チャンク${i + 1}/${chunks.length}）。`;
+      
+      console.log(`[Gemini] チャンク ${i + 1}/${chunks.length} 送信中... (${chunkData.length}件)`);
+      const startTime = Date.now();
+      
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.0-flash-exp',
+          contents: prompt,
+        });
+        
+        const text = response.text;
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`[Gemini] チャンク ${i + 1} 完了（${elapsed}秒）`);
+        
+        combinedAnalysis += `\n\n## チャンク ${i + 1}/${chunks.length} の分析結果\n\n${text}\n\n---\n`;
+        
+        // 最後のチャンク以外は60秒待機（レート制限回避）
+        if (i < chunks.length - 1) {
+          console.log('[待機] 60秒待機中...');
+          await new Promise(resolve => setTimeout(resolve, 60000));
+        }
+      } catch (error) {
+        console.error(`[エラー] チャンク ${i + 1} でエラー:`, error.message);
+        
+        // リトライ（1回のみ）
+        if (error.message.includes('429')) {
+          console.log('[リトライ] 90秒待機後に再試行...');
+          await new Promise(resolve => setTimeout(resolve, 90000));
+          
+          const retryResponse = await ai.models.generateContent({
+            model: 'gemini-2.0-flash-exp',
+            contents: prompt,
+          });
+          
+          combinedAnalysis += `\n\n## チャンク ${i + 1}/${chunks.length} の分析結果\n\n${retryResponse.text}\n\n---\n`;
+        } else {
+          throw error;
+        }
+      }
+    }
     
-    const response = await ai.models.generateContent({
+    // 最終統合レポート作成
+    console.log('[Gemini] 最終統合レポート作成中...');
+    const summaryPrompt = `以下は${chunks.length}回に分けて分析した結果です。これらを統合して、1つの包括的な分析レポートにまとめてください。
+
+【統合指示】
+- 重複する情報は統合してください
+- 矛盾する情報があれば調整してください
+- 最終的な売れ筋TOP10、仕入れ推奨商品、避けるべき商品をまとめてください
+- マークダウン形式で見やすく整形してください
+
+【分析結果】
+${combinedAnalysis}`;
+    
+    const finalResponse = await ai.models.generateContent({
       model: 'gemini-2.0-flash-exp',
-      contents: prompt,
+      contents: summaryPrompt,
     });
     
-    const text = response.text;
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[Gemini] 完了（${elapsed}秒）`);
+    const finalText = finalResponse.text;
     
     console.log('\n' + '='.repeat(80));
-    console.log('📊 Gemini分析レポート');
+    console.log('📊 Gemini分析レポート（統合版）');
     console.log('='.repeat(80) + '\n');
-    console.log(text);
+    console.log(finalText);
     console.log('\n' + '='.repeat(80));
     
     const fs = require('fs');
     const date = new Date().toISOString().split('T')[0];
     const filename = `analysis-${date}.md`;
-    fs.writeFileSync(filename, `# メルカリ分析レポート - ${date}\n\n${text}`);
+    fs.writeFileSync(filename, `# メルカリ分析レポート - ${date}\n\n${finalText}`);
     console.log(`\n[保存] ${filename}`);
     
   } catch (error) {
