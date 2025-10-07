@@ -36,6 +36,11 @@ async function geminiAnalyze() {
       return;
     }
     
+    // GEMINI_SAMPLE_SIZEが設定されている場合はサンプリング
+    const sampleSize = process.env.GEMINI_SAMPLE_SIZE ? parseInt(process.env.GEMINI_SAMPLE_SIZE) : rows.length;
+    const sampledRows = rows.slice(0, sampleSize);
+    console.log(`[サンプリング] ${sampledRows.length}件を分析対象に（全体: ${rows.length}件）`);
+    
     const summary = {
       total_items: rows.length,
       sold_items: rows.filter(r => r.status === 'SOLD').length,
@@ -55,8 +60,8 @@ async function geminiAnalyze() {
     // データを400件ずつのチャンクに分割（約10万トークン/チャンク）
     const chunkSize = 400;
     const chunks = [];
-    for (let i = 0; i < rows.length; i += chunkSize) {
-      chunks.push(rows.slice(i, i + chunkSize));
+    for (let i = 0; i < sampledRows.length; i += chunkSize) {
+      chunks.push(sampledRows.slice(i, i + chunkSize));
     }
     
     console.log(`[分割] ${chunks.length}チャンクに分割`);
