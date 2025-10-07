@@ -16,13 +16,17 @@ async function analyze() {
       ORDER BY created_at DESC
     `, [source, keyword]);
 
-    if (rows.length < 5) continue;
+    if (rows.length < 10) continue; // 最低10件必要
 
-    const prices = rows.map(p => p.price).filter(p => p > 0);
-    const avgPrice = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+    const prices = rows.map(p => p.price).filter(p => p > 0).sort((a, b) => a - b);
+    const medianPrice = prices.length % 2 === 0
+      ? (prices[prices.length / 2 - 1] + prices[prices.length / 2]) / 2
+      : prices[Math.floor(prices.length / 2)];
 
     const bargains = rows.filter(p =>
-      p.status === '販売中' && p.price < avgPrice * 0.8 && p.price > 1000
+      p.status === '販売中' && 
+      p.price < medianPrice * 0.75 && 
+      p.price > 500
     );
 
     for (const b of bargains) {
@@ -32,8 +36,8 @@ async function analyze() {
       `, [source, b.product_id]);
 
       if (notified.length === 0 && process.env.EMAIL_USER) {
-        const discount = Math.round((1 - b.price / avgPrice) * 100);
-        await sendEmail(source, keyword, b, avgPrice, discount);
+        const discount = Math.round((1 - b.price / medianPrice) * 100);
+        await sendEmail(source, keyword, b, medianPrice, discount);
 
         await client.query(`
           INSERT INTO notification_log (source, product_id, title, price, discount_percent)
@@ -45,7 +49,6 @@ async function analyze() {
 
   await client.end();
 }
-
 async function sendEmail(source, keyword, product, avgPrice, discount) {
   const sourceName = source === 'mercari' ? 'メルカリ' : 'ヤフーフリマ';
 
