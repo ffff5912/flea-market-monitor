@@ -25,7 +25,7 @@ async function analyze() {
 
     const bargains = rows.filter(p =>
       p.status === '販売中' && 
-      p.price < medianPrice * 0.75 && 
+      p.price < medianPrice * 0.50 && 
       p.price > 500
     );
 
