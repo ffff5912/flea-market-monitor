@@ -8,7 +8,7 @@ on:
     - cron: '*/30 0-2,6-8,15-23 * * *'  # それ以外は30分おき
     
     # 分析・レポート
-    - cron: '0 * * * *'            # 1時間おき（既存のanalyzer）
+    #- cron: '0 * * * *'            # 1時間おき（既存のanalyzer）
     - cron: '0 17 * * *'           # 毎日深夜2時（日本時間）Gemini分析
     
   workflow_dispatch:
